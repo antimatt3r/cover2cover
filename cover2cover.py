@@ -57,10 +57,27 @@ def guess_filename(path_to_class):
     m = re.match('([^$]*)', path_to_class)
     return (m.group(1) if m else path_to_class) + '.java'
 
-def add_counters(source, target):
-    target.set('line-rate',   counter(source, 'LINE'))
-    target.set('branch-rate', counter(source, 'BRANCH'))
-    target.set('complexity', counter(source, 'COMPLEXITY', sum))
+def add_counters(source, target, version=None):
+    target.set('line-rate',   counter(source, 'LINE', operation=fraction))
+    target.set('branch-rate', counter(source, 'BRANCH', operation=fraction))
+    target.set('complexity', counter(source, 'COMPLEXITY', operation=sum))
+    if version:
+        target.set('version', version)
+        for t_key, s_key in (
+                                ('lines', 'LINE'),
+                                ('branches', 'BRANCH'),
+                                ('instructions', 'INSTRUCTION'),
+                                ('classes', 'CLASS'),
+                                ('methods', 'METHOD')
+        ):
+            target.set(
+                '{}-covered'.format(t_key),
+                counter(source, s_key, operation=None, value='covered')
+            )
+            target.set(
+                '{}-valid'.format(t_key),
+                counter(source, s_key, operation=None, value='valid')
+            )
 
 def fraction(covered, missed):
     return covered / (covered + missed)
@@ -68,17 +85,20 @@ def fraction(covered, missed):
 def sum(covered, missed):
     return covered + missed
 
-def counter(source, type, operation=fraction):
+def counter(source, type_, operation=fraction, value=None):
     cs = source.findall('counter')
-    c = next((ct for ct in cs if ct.attrib.get('type') == type), None)
-
+    c = next((ct for ct in cs if ct.attrib.get('type') == type_), None)
+    typecast = int if value else float
     if c is not None:
-        covered = float(c.attrib['covered'])
-        missed  = float(c.attrib['missed'])
+        covered = typecast(c.attrib['covered'])
+        missed  = typecast(c.attrib['missed'])
+        all_ = covered + missed
+        values = {'valid': all_, 'covered': covered}
 
-        return str(operation(covered, missed))
+        return str(values[value]) if operation is None else str(operation(covered, missed))
     else:
-        return '0.0'
+        return '0' if operation is None else '0.0'
+
 
 def convert_method(j_method, j_lines):
     c_method = ET.Element('method')
@@ -120,7 +140,7 @@ def convert_package(j_package):
 
     return c_package
 
-def convert_root(source, target, source_roots):
+def convert_root(source, target, source_roots, version):
     target.set('timestamp', str(int(source.find('sessioninfo').attrib['start']) / 1000))
 
     sources     = ET.SubElement(target, 'sources')
@@ -131,9 +151,9 @@ def convert_root(source, target, source_roots):
     for package in source.findall('package'):
         packages.append(convert_package(package))
 
-    add_counters(source, target)
+    add_counters(source, target, version)
 
-def jacoco2cobertura(filename, source_roots):
+def jacoco2cobertura(filename, source_roots, version):
     if filename == '-':
         root = ET.fromstring(sys.stdin.read())
     else:
@@ -141,16 +161,17 @@ def jacoco2cobertura(filename, source_roots):
         root = tree.getroot()
 
     into = ET.Element('coverage')
-    convert_root(root, into, source_roots)
+    convert_root(root, into, source_roots, version)
     print '<?xml version="1.0" ?>'
     print ET.tostring(into)
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print "Usage: cover2cover.py FILENAME [SOURCE_ROOTS]"
+    if len(sys.argv) < 3:
+        print "Usage: cover2cover.py FILENAME VERSION [SOURCE_ROOTS]"
         sys.exit(1)
 
-    filename    = sys.argv[1]
-    source_roots = sys.argv[2:] if 2 < len(sys.argv) else '.'
+    filename = sys.argv[1]
+    version = sys.argv[2]
+    source_roots = sys.argv[3:] if 3 < len(sys.argv) else '.'
 
-    jacoco2cobertura(filename, source_roots)
+    jacoco2cobertura(filename, source_roots, version)
