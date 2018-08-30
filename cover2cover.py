@@ -141,7 +141,11 @@ def convert_package(j_package):
     return c_package
 
 def convert_root(source, target, source_roots, version):
-    target.set('timestamp', str(int(source.find('sessioninfo').attrib['start']) / 1000))
+    try:
+        timestamp = str(int(source.find('sessioninfo').attrib['start']) / 1000)
+    except AttributeError:
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+    target.set('timestamp', timestamp)
 
     sources     = ET.SubElement(target, 'sources')
     for s in source_roots:
