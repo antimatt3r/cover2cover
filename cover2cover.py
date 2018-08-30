@@ -63,6 +63,7 @@ def add_counters(source, target, version=None):
     target.set('branch-rate', counter(source, 'BRANCH', operation=fraction))
     target.set('complexity', counter(source, 'COMPLEXITY', operation=sum))
     if version:
+        version = re.sub(r'[^\d\.]', '', version)
         target.set('version', version)
         for t_key, s_key in (
                                 ('lines', 'LINE'),
@@ -145,7 +146,7 @@ def convert_root(source, target, source_roots, version):
     try:
         timestamp = str(int(source.find('sessioninfo').attrib['start']) / 1000)
     except AttributeError:
-        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+        timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
     target.set('timestamp', timestamp)
 
     sources     = ET.SubElement(target, 'sources')
