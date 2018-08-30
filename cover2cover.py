@@ -146,7 +146,7 @@ def convert_root(source, target, source_roots, version):
     try:
         timestamp = str(int(source.find('sessioninfo').attrib['start']) / 1000)
     except AttributeError:
-        timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+        timestamp = datetime.datetime.now().strftime('%s')
     target.set('timestamp', timestamp)
 
     sources     = ET.SubElement(target, 'sources')
